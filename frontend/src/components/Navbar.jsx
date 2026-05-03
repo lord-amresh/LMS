@@ -1,7 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { navbarStyles } from '../assets/dummyStyles';
 import logo from '../assets/logo.png';
-import { BookMarked, BookOpen, Contact, Home, Users } from 'lucide-react';
+import { BookMarked, BookOpen, Contact, Home, Menu, Users, X } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuth, useClerk, UserButton, useUser } from '@clerk/react';
 
@@ -30,6 +30,67 @@ const Navbar = () => {
   // Logic
   const isLoggedIn = isSignedIn && Boolean(localStorage.getItem("token"));
 
+  //  fetch token
+useEffect(() => {
+  const loadToken = async () => {
+    if (isSignedIn) {
+      const token = await getToken();
+      localStorage.setItem("token", token);
+      console.log("Clerk Login Token:", token);
+    }
+  };
+  loadToken();
+}, [isSignedIn, getToken]);
+
+  //  remove token when signout
+useEffect(() => {
+  if (!isSignedIn) {
+    localStorage.removeItem("token");
+    console.log("Clerk Token Removed");
+  }
+}, [isSignedIn]);
+
+// INSTANT token removal using Clerk logout event
+  useEffect(() => {
+    const handleLogout = () => {
+      localStorage.removeItem("token");
+      console.log("Token removed instantly on Clerk logout event");
+    };
+
+    window.addEventListener("user:signed_out", handleLogout);
+    return () => window.removeEventListener("user:signed_out", handleLogout);
+  }, []);
+
+  // Scroll hide/show
+  const [lastScrollY, setLastScrollY] = useState(0);
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      setIsScrolled(scrollY > 20);
+
+      if (scrollY > lastScrollY && scrollY > 100) {
+        setShowNavbar(false);
+      } else {
+        setShowNavbar(true);
+      }
+      setLastScrollY(scrollY);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+  
   // Methods based on 1.jpg
   const desktopLinkClass = (isActive) =>
     `${navbarStyles.desktopNavItem} ${
@@ -100,9 +161,67 @@ const Navbar = () => {
                 <UserButton afterSignOutUrl="/" />
               </div>
             )}
+
+            {/* toggle */}
+            <button
+            onClick={() => setIsOpen(!isOpen)}
+            className={navbarStyles.mobileMenuButton}
+            >
+              {isOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
-          
         </div>
+
+        {/* Mobile Nav */}
+        <div ref={menuRef} className={`${navbarStyles.mobileMenu} ${
+          isOpen ? navbarStyles.mobileMenuOpen : navbarStyles.mobileMenuClosed
+        }`} >
+          <div className={navbarStyles.mobileMenuContainer}>
+            <div className={navbarStyles.mobileMenuItems}>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    end={item.href === "/"}
+                    className={({ isActive }) => mobileLinkClass(isActive)}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <div className={navbarStyles.mobileMenuIconContainer}>
+                      <Icon size={18} className={navbarStyles.mobileMenuIcon} />
+                    </div>
+                    <span className={navbarStyles.mobileMenuText}>
+                      {item.name}
+                    </span>
+                  </NavLink>
+                );
+              })}
+
+              {!isSignedIn ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    openSignUp({});
+                    setIsOpen(false);
+                  }}
+                  className={
+                    navbarStyles.mobileCreateAccountButton ?? navbarStyles.mobileLoginButton
+                  }>
+                  <span>Create Account</span>
+                </button>
+              ) : (
+                <div className=" px-4 py-2">
+                  <UserButton afterSignOutUrl="/" />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={navbarStyles.backgroundPattern}>
+        <div className={navbarStyles.pattern}></div>
       </div>
     </nav>
   );
