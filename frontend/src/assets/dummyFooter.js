@@ -40,13 +40,13 @@ export const supportLinks = [
 
 
 export const contactInfo = {
-addressLine1: '123 Triveni Nagar',
-city: 'Lucknow',
-phone: '+91 8299431275',
+addressLine1: 'Nagwa-16',
+city: 'Birgunj',
+phone: '+977 9818062229',
 phoneHours: 'Mon-Fri, 9AM-6PM',
-email: 'hexagonsservices@gmail.com',
-website: 'https://hexagondigitalservices.com',
-designBy: 'HexagonDigitalServices'
+email: 'amresh981806@gmail.com',
+website: 'https://portfolio.amresh.com.np',
+designBy: 'Amresh Chaurasia'
 };
 
 
