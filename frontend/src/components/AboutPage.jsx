@@ -85,7 +85,7 @@ const AboutPage = () => {
             className={aboutUsStyles.heroImageContainer}
             />
 
-                    {/* Top-and-bottom vignette */}
+      {/* Top-and-bottom vignette */}
           <div
             className={aboutUsStyles.heroVignette}
             style={{
@@ -187,7 +187,7 @@ const AboutPage = () => {
         </section>
       ))}
 
-       {/* Enhanced Values Principles Section */}
+      {/* Enhanced Values Principles Section */}
       <section className={aboutUsStyles.valuesSection}>
         <div className={aboutUsStyles.sectionGrid}>
           <div className={aboutUsStyles.valuesHeader}>
@@ -246,50 +246,7 @@ const AboutPage = () => {
         </div>
       </section>
 
-
- {/* Testimonials Section */}
-      <section className={aboutUsStyles.testimonialsSection}>
-        <div className={aboutUsStyles.sectionGrid}>
-          <div className={aboutUsStyles.testimonialsHeader}>
-            <h2 className={aboutUsStyles.testimonialsTitle}>
-              What Our Students Say
-            </h2>
-            <p className={aboutUsStyles.testimonialsSubtitle}>
-              Real stories from real learners who transformed their careers
-            </p>
-          </div>
-          <div className={aboutUsStyles.testimonialsGrid}>
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className={aboutUsStyles.testimonialCard}>
-                <div className={aboutUsStyles.testimonialStars}>
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className={aboutUsStyles.testimonialStar} />
-                  ))}
-                </div>
-                <p className={aboutUsStyles.testimonialText}>
-                  "{testimonial.text}"
-                </p>
-                <div className={aboutUsStyles.testimonialAuthor}>
-                  <img
-                    src={testimonial.image}
-                    alt={testimonial.name}
-                    className={aboutUsStyles.testimonialAvatar}
-                  />
-                  <div>
-                    <div className={aboutUsStyles.testimonialAuthorName}>
-                      {testimonial.name}
-                    </div>
-                    <div className={aboutUsStyles.testimonialAuthorRole}>
-                      {testimonial.role}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
+      {/* Team Section */}
       <section className={aboutUsStyles.teamSection}>
         <div className={aboutUsStyles.sectionGrid}>
           <div className={aboutUsStyles.teamHeader}>
