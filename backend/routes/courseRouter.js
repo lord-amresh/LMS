@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
+import { createCourse, deleteCourse, getCourseById, getCourses, getMyRating, getPublicCourses, rateCourse } from '../controllers/courseController.js'
 
 // MULTER SETUP
 const storage = multer.diskStorage({
