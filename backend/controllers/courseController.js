@@ -104,16 +104,18 @@ export const getPublicCourses = async (req, res) => {
             filter.courseType = 'regular'
         }
 
-        const q = (await Course.find(filter)).toSorted({ createdAt: -1 });
+        // CORRECTED: Use Mongoose .sort() instead of JS .toSorted()
+        // and build the query object to allow .limit() chaining
+        let query = Course.find(filter).sort({ createdAt: -1 });
 
         if (home === 'true') {
-            q.limit(Number(limit || 8));
+            query = query.limit(Number(limit || 8));
         }
         else if (limit) {
-            q.limit(Number(limit));
+            query = query.limit(Number(limit));
         }
 
-        const courses = await q.lean();
+        const courses = await query.lean();
 
         const mapped = courses.map((c) => {
             const imageUrl = makeImageAbsolute(c.image || "", req);
