@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { myCoursesStyles, myCoursesCustomStyles } from "../assets/dummyStyles";
 
-import { useUser, useAuth } from "@clerk/react"
+import { useUser, useAuth } from "@clerk/react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "react-toastify";
@@ -17,24 +17,24 @@ const MyCourses = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-    const [userRatings, setUserRatings] = useState(() => {
-      try {
-        const raw = localStorage.getItem("userCourseRatings");
-        return raw ? JSON.parse(raw) : {};
-      } catch {
-        return {};
-      }
-    });
-    const [hoverRatings, setHoverRatings] = useState({});
+  const [userRatings, setUserRatings] = useState(() => {
+    try {
+      const raw = localStorage.getItem("userCourseRatings");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [hoverRatings, setHoverRatings] = useState({});
 
-    useEffect(() => {
-      try {
-        localStorage.setItem("userCourseRatings", JSON.stringify(userRatings));
-      } catch {}
-    }, [userRatings]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("userCourseRatings", JSON.stringify(userRatings));
+    } catch {}
+  }, [userRatings]);
 
-    // fetch
-      useEffect(() => {
+  // fetch
+  useEffect(() => {
     let mounted = true;
     const controller = new AbortController();
 
@@ -50,14 +50,14 @@ const MyCourses = () => {
           }
           return;
         }
+
         // Prepare headers and attempt to include Clerk token
-        const headers = { "Content-Type": "application/json" };
-        try {
-          const token = await getToken().catch(() => null);
-          if (token) headers.Authorization = `Bearer ${token}`;
-        } catch (e) {
-          // ignore token acquisition failure; server will respond 401
-        }
+        const token = await getToken().catch(() => null);
+        const headers = {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        };
+
         const bookingsRes = await fetch(`${API_BASE}/api/booking/my`, {
           method: "GET",
           credentials: "include",
@@ -86,26 +86,21 @@ const MyCourses = () => {
           );
         }
         const bookings = bookingsJson.bookings || [];
-        // (the rest of your logic is unchanged — fetch courses for each booking)
+
+        // fetch courses for each booking
         const combined = await Promise.all(
           bookings.map(async (b) => {
             const courseId = b.course ?? b.courseId ?? null;
             if (!courseId) return null;
 
             try {
-              const cHeaders = { "Content-Type": "application/json" };
-              try {
-                const token = await getToken().catch(() => null);
-                if (token) cHeaders.Authorization = `Bearer ${token}`;
-              } catch (e) {}
-
               const courseRes = await fetch(
                 `${API_BASE}/api/course/${courseId}`,
                 {
                   method: "GET",
                   credentials: "include",
                   signal: controller.signal,
-                  headers: cHeaders,
+                  headers, // Reuse authenticated headers
                 }
               );
 
@@ -176,21 +171,17 @@ const MyCourses = () => {
           rawBooking: booking,
         }));
         setCourses(uiCourses);
-        // fetch user's per-course rating (unchanged)
+
+        // fetch user's per-course rating
         if (isSignedIn && uiCourses.length > 0) {
           const ratingPromises = uiCourses.map(async (c) => {
             if (!c.id) return null;
             try {
-              const rHeaders = { "Content-Type": "application/json" };
-              try {
-                const token = await getToken().catch(() => null);
-                if (token) rHeaders.Authorization = `Bearer ${token}`;
-              } catch (e) {}
               const res = await fetch(
                 `${API_BASE}/api/course/${c.id}/my-rating`,
                 {
                   method: "GET",
-                  headers: rHeaders,
+                  headers,
                   credentials: "include",
                 }
               );
@@ -217,7 +208,9 @@ const MyCourses = () => {
         if (mounted) setLoading(false);
       }
     };
+
     fetchMyCourses();
+
     return () => {
       mounted = false;
       controller.abort();
@@ -225,19 +218,15 @@ const MyCourses = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
-  //  to submit rating to server
-    // Helper: optimistic submit rating to server (similar to courses page)
+  // Optimistic submit rating to server
   const submitRatingToServer = async (courseId, ratingValue) => {
     try {
-      const headers = { "Content-Type": "application/json" };
-      try {
-        if (getToken) {
-          const token = await getToken().catch(() => null);
-          if (token) headers.Authorization = `Bearer ${token}`;
-        }
-      } catch (err) {
-        // ignore token failure
-      }
+      const token = await getToken().catch(() => null);
+      const headers = {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      };
+
       const res = await fetch(`${API_BASE}/api/course/${courseId}/rate`, {
         method: "POST",
         headers,
@@ -254,13 +243,8 @@ const MyCourses = () => {
         throw new Error(msg);
       }
 
-      const avg =
-        data.avgRating ?? data.course?.avgRating ?? data.avgRating ?? null;
-      const total =
-        data.totalRatings ??
-        data.course?.ratingCount ??
-        data.totalRatings ??
-        null;
+      const avg = data.avgRating ?? data.course?.avgRating ?? null;
+      const total = data.totalRatings ?? data.course?.ratingCount ?? null;
 
       if (avg !== null || total !== null) {
         setCourses((prev) =>
@@ -286,32 +270,33 @@ const MyCourses = () => {
     }
   };
 
-    const handleSetRating = async (e, courseId, rating) => {
-      e.stopPropagation();
-      const { isSignedIn: signed } = { isSignedIn };
-      if (!signed) {
-        toast("Please sign in to submit a rating", { icon: "⭐" });
-        return;
-      }
+  const handleSetRating = async (e, courseId, rating) => {
+    e.stopPropagation();
+    if (!isSignedIn) {
+      toast("Please sign in to submit a rating", { icon: "⭐" });
+      return;
+    }
 
-      setUserRatings((prev) => ({
-        ...prev,
-        [courseId]: rating,
-      }));
-      await submitRatingToServer(courseId, rating);
-    };
+    // Update locally immediately for better UX
+    setUserRatings((prev) => ({
+      ...prev,
+      [courseId]: rating,
+    }));
+    await submitRatingToServer(courseId, rating);
+  };
 
-    const handleViewCourse = (courseId) => {
-      if(!courseId) return;
-      navigate(`/course/${courseId}`);
-    };
+  const handleViewCourse = (courseId) => {
+    if (!courseId) return;
+    navigate(`/course/${courseId}`);
+  };
 
-    // for stars
-      const renderInteractiveStars = (c) => {
+  // Star rendering logic
+  const renderInteractiveStars = (c) => {
     const userRating = userRatings[c.id] || 0;
     const hover = hoverRatings[c.id] || 0;
     const baseDisplay = userRating || Math.round(c.avgRating || 0);
     const displayRating = hover || baseDisplay;
+
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div
@@ -365,7 +350,7 @@ const MyCourses = () => {
     );
   };
 
-    if (loading) {
+  if (loading) {
     return (
       <div className={myCoursesStyles.pageContainer}>
         <div className={myCoursesStyles.mainContainer}>
@@ -381,16 +366,14 @@ const MyCourses = () => {
       <div className={myCoursesStyles.pageContainer}>
         <div className={myCoursesStyles.mainContainer}>
           <h1 className={myCoursesStyles.header}>My Courses...</h1>
-          <p className={myCoursesStyles.emptyText}
-          style={{color: "red",
-          }}
-          >
+          <p className={myCoursesStyles.emptyText} style={{ color: "red" }}>
             {error}
           </p>
         </div>
       </div>
     );
   }
+
   if (!courses || courses.length === 0) {
     return (
       <div className={myCoursesStyles.pageContainer}>
@@ -398,7 +381,7 @@ const MyCourses = () => {
           <h1 className={myCoursesStyles.header}>My Courses</h1>
           <p className={myCoursesStyles.emptyText}>
             You haven't purchased any courses yet.
-            </p>
+          </p>
         </div>
       </div>
     );
@@ -418,14 +401,18 @@ const MyCourses = () => {
                 animationDelay: `${index * 100}ms`,
                 animation: `fadeInUp 0.6s ease-out ${index * 100}ms both`,
               }}
-              role="button" tabIndex={0} onKeyDown={(e) => {
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
                 if (e.key === "Enter") handleViewCourse(course.id);
               }}
               onClick={() => handleViewCourse(course.id)}
             >
               <div className={myCoursesStyles.imageContainer}>
-                <img src={course.image || undefined} alt={course.name} 
-                className={myCoursesStyles.courseImage}
+                <img
+                  src={course.image || undefined}
+                  alt={course.name}
+                  className={myCoursesStyles.courseImage}
                 />
               </div>
 
@@ -437,7 +424,7 @@ const MyCourses = () => {
                     {renderInteractiveStars(course)}
                   </div>
                   <div className={myCoursesStyles.teacherContainer}>
-                    <User className={myCoursesStyles.teacherIcon}/>
+                    <User className={myCoursesStyles.teacherIcon} />
                     <span className={myCoursesStyles.teacherText}>
                       {course.teacher}
                     </span>
@@ -462,8 +449,7 @@ const MyCourses = () => {
 
       <style jsx>{myCoursesCustomStyles}</style>
     </div>
-);
-
+  );
 };
 
 export default MyCourses;

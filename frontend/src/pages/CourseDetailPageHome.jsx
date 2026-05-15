@@ -187,77 +187,34 @@ const CourseDetail = () => {
     };
   }, [courseId]);
 
+  // CORRECTION 1: Robust Enrollment check when user lands on page
   useEffect(() => {
     let mounted = true;
-    if (!course) return;
+    if (!course || !isLoggedIn) return;
 
     const checkEnrollment = async () => {
       try {
-        let headers = { "Content-Type": "application/json" };
-        let opts = { method: "GET" };
-        if (getToken) {
-          try {
-            const token = await getToken({ template: "standard" }).catch(() =>
-              getToken()
-            );
-            if (token) {
-              headers.Authorization = `Bearer ${token}`;
-              opts = { method: "GET", headers };
-            } else {
-              opts = { method: "GET", credentials: "include", headers };
-            }
-          } catch (e) {
-            opts = { method: "GET", credentials: "include", headers };
-          }
-        } else {
-          opts = { method: "GET", credentials: "include", headers };
-        }
-
+        const token = await getToken();
         const q = `${API_BASE}/api/booking/check?courseId=${encodeURIComponent(
           course._id ?? course.id ?? courseId
         )}`;
-        const res = await fetch(q, opts);
+        
+        const res = await fetch(q, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
         const data = await res.json().catch(() => ({}));
 
-        let serverBooking =
-          data.booking || data.bookingRecord || data.data || null;
-        if (!serverBooking && data.sessionBooking)
-          serverBooking = data.sessionBooking;
+        if (!mounted) return;
 
-        const serverSaysEnrolled =
-          data.enrolled ||
-          data.userEnrolled ||
-          data.alreadyBooked ||
-          data.bookingExists;
-
-        const bookingPaidOrConfirmed =
-          serverBooking &&
-          (serverSaysEnrolled ||
-            serverBooking.paymentStatus === "Paid" ||
-            serverBooking.paymentStatus === "paid" ||
-            serverBooking.orderStatus === "Confirmed" ||
-            serverBooking.orderStatus === "confirmed" ||
-            !!serverBooking.paidAt);
-
-        if (mounted && bookingPaidOrConfirmed) {
-          setBookingInfo(serverBooking || null);
-          setIsEnrolled(true);
-          return;
-        }
-
-        if (mounted && serverBooking) {
-          setBookingInfo(serverBooking);
-          setIsEnrolled(false);
-          return;
-        }
-
-        if (mounted) {
-          setBookingInfo(null);
-          setIsEnrolled(false);
+        if (data.success && data.enrolled) {
+          setBookingInfo(data.booking);
+          // Auto-enroll if free course or already paid
+          if (course.pricingType === "free" || data.booking?.paymentStatus === "Paid") {
+            setIsEnrolled(true);
+          }
         }
       } catch (err) {
         console.debug("booking.check failed:", err);
-        // keep previous state (do not flip)
       }
     };
 
@@ -437,193 +394,65 @@ const CourseDetail = () => {
     });
   };
 
-  // create or complete booking (enroll)
+  // CORRECTION 2: Optimized handleEnroll to catch "already booked" flag
   const handleEnroll = async () => {
     if (!isLoggedIn) {
-      setToast({
-        message: "Please login to enroll in the course",
-        type: "error",
-      });
+      setToast({ message: "Please login to enroll", type: "error" });
       return;
     }
-    if (!course) {
-      setToast({ message: "Course not loaded", type: "error" });
-      return;
-    }
+    if (!course || isEnrolling) return;
 
     if (isEnrolled) {
-      setToast({
-        message: "You are already enrolled in this course.",
-        type: "info",
-      });
-      return;
+        navigate("/mycourses");
+        return;
     }
 
     setIsEnrolling(true);
     try {
-      const numericPrice =
-        salePrice != null
-          ? salePrice
-          : originalPrice != null
-          ? originalPrice
-          : 0;
-      const studentName = studentNameFromUser || "";
-      const email = studentEmailFromUser || "";
-
+      const numericPrice = salePrice != null ? salePrice : (originalPrice != null ? originalPrice : 0);
+      const token = await getToken();
+      
       const payload = {
         courseId: course._id ?? course.id ?? courseId,
         courseName: course.name,
         teacherName: course.teacher || "",
         price: numericPrice,
-        studentName,
-        email,
+        studentName: studentNameFromUser,
+        email: studentEmailFromUser,
       };
 
-      let headers = { "Content-Type": "application/json" };
-      let opts = {
+      const res = await fetch(`${API_BASE}/api/booking/create`, {
         method: "POST",
-        headers,
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify(payload),
-        credentials: "include",
-      };
+      });
 
-      if (getToken) {
-        try {
-          const token = await getToken().catch(() => null);
-          if (token) {
-            headers.Authorization = `Bearer ${token}`;
-            opts = {
-              method: "POST",
-              headers,
-              body: JSON.stringify(payload),
-            };
-          }
-        } catch (e) {
-          // keep credentials include fallback
-        }
-      }
-
-      const res = await fetch(`${API_BASE}/api/booking/create`, opts);
       const data = await res.json().catch(() => ({ success: false }));
 
-      if (!res.ok || !data.success) {
-        const msg =
-          (data && (data.message || data.error)) ||
-          `Failed to create booking (${res.status})`;
-        const alreadyBooked =
-          /already booked|already enrolled|booking exists/i.test(msg) ||
-          data.alreadyBooked ||
-          data.bookingExists;
-        if (alreadyBooked) {
-          // Re-run server-side check to get booking state
-          setToast({
-            message:
-              "You already have a booking for this course. Checking status...",
-            type: "info",
-          });
-          try {
-            const q = `${API_BASE}/api/booking/check?courseId=${encodeURIComponent(
-              payload.courseId
-            )}`;
-            const checkOpts =
-              opts.method === "POST"
-                ? { method: "GET", headers: opts.headers }
-                : { method: "GET", credentials: "include" };
-            const chkRes = await fetch(q, checkOpts);
-            const chkData = await chkRes.json().catch(() => ({}));
-            if (chkData.booking) setBookingInfo(chkData.booking);
-            // if server claims enrolled -> set
-            if (
-              chkData.enrolled ||
-              chkData.userEnrolled ||
-              chkData.bookingExists ||
-              chkData.alreadyBooked
-            ) {
-              setIsEnrolled(true);
-              setToast({ message: "You're enrolled.", type: "info" });
-            } else {
-              // if booking exists but unpaid
-              if (chkData.booking)
-                setToast({
-                  message: "Booking found — payment pending.",
-                  type: "info",
-                });
-            }
-          } catch (e) {
-            console.debug("re-check after alreadyBooked:", e);
-          }
+      if (!res.ok) {
+        // If already booked, update local state instead of failing
+        if (data.alreadyBooked) {
+          setIsEnrolled(course.pricingType === "free" || data.booking?.paymentStatus === "Paid");
+          setBookingInfo(data.booking);
+          setToast({ message: "Redirecting to your course content...", type: "info" });
           return;
         }
-        throw new Error(msg);
+        throw new Error(data.message || "Enrollment failed");
       }
 
-      // If checkout is required (Stripe) — redirect the user
-      if (data.checkoutUrl) {
-        // Keep bookingInfo if server returned booking
-        if (data.booking) setBookingInfo(data.booking);
-        window.location.href = data.checkoutUrl;
-        return;
-      }
-
-      // If server returned booking (free course or immediate confirmed)
-      if (data.booking) {
-        setBookingInfo(data.booking);
-        // determine paid/confirmed
-        const b = data.booking;
-        const paid =
-          b.paymentStatus === "Paid" ||
-          b.paymentStatus === "paid" ||
-          b.orderStatus === "Confirmed" ||
-          b.orderStatus === "confirmed" ||
-          !!b.paidAt;
-
-        if (paid) {
-          setIsEnrolled(true);
-          setToast({
-            message:
-              numericPrice === 0
-                ? "Enrolled successfully (free course)."
-                : "Enrollment succeeded.",
-            type: "info",
-          });
-          // for a paid course that was marked paid by server, navigate to My Courses
-          if (numericPrice > 0) {
-            navigate("/my-courses");
-          }
-          return;
-        }
-
-        // booking exists but unpaid (pending payment)
-        if (numericPrice > 0 && !paid) {
-          setIsEnrolled(false);
-          setToast({
-            message: "Booking created — complete payment to access the course.",
-            type: "info",
-          });
-          return;
-        }
-
-        // fallback: mark enrolled
-        setIsEnrolled(true);
-        setToast({ message: "Enrolled.", type: "info" });
-        return;
-      }
-
-      // if no booking returned but success true — assume enrolled for free courses
       if (data.success) {
-        if (numericPrice === 0) {
+        if (course.pricingType === "free") {
           setIsEnrolled(true);
-          setToast({ message: "Enrolled (free course).", type: "info" });
-        } else {
-          setToast({
-            message: "Enrollment initiated, complete payment.",
-            type: "info",
-          });
+          setToast({ message: "Successfully enrolled!", type: "info" });
+        } else if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
         }
       }
     } catch (err) {
-      console.error("Enroll error:", err);
-      setToast({ message: err.message || "Enrollment failed", type: "error" });
+      setToast({ message: err.message, type: "error" });
     } finally {
       setIsEnrolling(false);
     }
@@ -673,7 +502,6 @@ const CourseDetail = () => {
       bookingInfo.paymentStatus === "unpaid") &&
     (salePrice || originalPrice || bookingInfo.price) > 0;
 
-    // this is the UI similar to the previous version
   return (
     <div className={courseDetailStylesH.pageContainer}>
       {toast && (
@@ -700,7 +528,6 @@ const CourseDetail = () => {
             </span>
           </button>
 
-          {/* refresh booking button intentionally removed */}
           <div />
         </div>
 
@@ -1088,43 +915,9 @@ const CourseDetail = () => {
                   : "One-time payment · Lifetime access · 30-day guarantee"}
               </p>
 
+              {/* CORRECTION 3: Smart Button UI */}
               <div className="mt-6">
-                {/* If booking exists and unpaid -> show a "Complete payment" / "View payment" CTA */}
-                {bookingPendingPayment ? (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => {
-                        // attempt to create/refresh checkout by calling handleEnroll again
-                        handleEnroll();
-                      }}
-                      className={courseDetailStylesH.enrollButton}
-                      disabled={isEnrolling}
-                    >
-                      {isEnrolling ? (
-                        <>
-                          <div className={courseDetailStylesH.enrollSpinner} />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Play
-                            className={courseDetailStylesH.enrollButtonIcon}
-                          />
-                          Complete Payment
-                          <span className="ml-auto opacity-80 group-hover:opacity-100">
-                            <ArrowRight className="w-4 h-4" />
-                          </span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => navigate("/my-courses")}
-                      className="text-sm underline"
-                    >
-                      View booking (My Courses)
-                    </button>
-                  </div>
-                ) : !isEnrolled ? (
+                {!isEnrolled ? (
                   <button
                     onClick={handleEnroll}
                     disabled={isEnrolling}
@@ -1133,14 +926,12 @@ const CourseDetail = () => {
                     {isEnrolling ? (
                       <>
                         <div className={courseDetailStylesH.enrollSpinner} />
-                        Enrolling...
+                        Processing...
                       </>
                     ) : (
                       <>
-                        <Play
-                          className={courseDetailStylesH.enrollButtonIcon}
-                        />
-                        {courseIsFree ? "Enroll (Free)" : "Enroll Now"}
+                        <Play className={courseDetailStylesH.enrollButtonIcon} />
+                        {bookingPendingPayment ? "Complete Payment" : (courseIsFree ? "Enroll (Free)" : "Enroll Now")}
                         <span className="ml-auto opacity-80 group-hover:opacity-100">
                           <ArrowRight className="w-4 h-4" />
                         </span>
@@ -1149,13 +940,14 @@ const CourseDetail = () => {
                   </button>
                 ) : (
                   <button
-                    disabled
-                    className={courseDetailStylesH.enrollButtonEnrolled}
+                    onClick={() => navigate("/mycourses")}
+                    className={courseDetailStylesH.enrollButton}
                   >
-                    <CheckCircle
-                      className={courseDetailStylesH.enrollButtonIcon}
-                    />
-                    Enrolled
+                    <CheckCircle className={courseDetailStylesH.enrollButtonIcon} />
+                    Go to Course
+                    <span className="ml-auto opacity-80 group-hover:opacity-100">
+                      <ArrowRight className="w-4 h-4" />
+                    </span>
                   </button>
                 )}
               </div>

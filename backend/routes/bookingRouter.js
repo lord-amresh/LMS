@@ -7,7 +7,7 @@ bookingRouter.get('/', getBookings);
 bookingRouter.get('/stats', getStats);
 
 bookingRouter.post('/create', createBooking);
-bookingRouter.get('check', checkBooking);
+bookingRouter.get('/check', checkBooking); // FIXED: Added the missing '/'
 bookingRouter.get('/confirm', confirmPayment);
 
 bookingRouter.get('/my', getUserBookings);

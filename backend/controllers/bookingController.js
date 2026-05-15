@@ -75,6 +75,7 @@ catch (err) {
     })
     }
 }
+
 // we also need to check for the booking as a user has already enrolled in that course or not
 export const checkBooking = async (req, res) => {
     try {
@@ -141,6 +142,21 @@ export const createBooking = async (req, res) => {
       studentName,
     } = req.body;
 
+    // --- ADD THIS CHECK TO PREVENT DUPLICATES ---
+    const existingBooking = await Booking.findOne({ 
+      course: courseId, 
+      clerkUserId: userId 
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "You already have a booking for this course.",
+        alreadyBooked: true, // Send this flag so frontend knows what happened
+        booking: existingBooking 
+      });
+    }
+
     if (!courseId || !courseName) return res.status(400).json({ success: false, message: "courseId and courseName required" });
 
     const numericPrice = safeNumber(price);
@@ -173,7 +189,7 @@ export const createBooking = async (req, res) => {
         ...basePayload,
         paymentStatus: "Paid",
         orderStatus: "Confirmed",
-        paidAt: new Date(), // <-- mark paid time so frontend can rely on it
+        paidAt: new Date(), 
       });
       return res.status(201).json({ success: true, booking, checkoutUrl: null });
     }
@@ -255,7 +271,6 @@ export const confirmPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: "Payment not completed" });
     }
 
-    // Try match by sessionId first, then metadata.bookingId
     let booking = await Booking.findOneAndUpdate(
       { sessionId: session_id },
       { paymentStatus: "Paid", paymentIntentId: session.payment_intent || null, orderStatus: "Confirmed", paidAt: new Date() },
@@ -278,6 +293,7 @@ export const confirmPayment = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
 // get user bookings
 export const getUserBookings = async (req, res) => {
     try {

@@ -77,137 +77,139 @@ const BookingsPage = () => {
   };
 
   useEffect(() => {
-  fetchBookings("");
-  return () => {
-    if (abortRef.current) abortRef.current.abort();
-  };
-}, []);
+    fetchBookings("");
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
 
-useEffect(() => {
-  if (debounceRef.current) clearTimeout(debounceRef.current);
-  debounceRef.current = setTimeout(() => {
-    fetchBookings(searchTerm.trim());
-  }, 300); 
-
-  return () => {
+  useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-  };
-}, [searchTerm]);
+    debounceRef.current = setTimeout(() => {
+      fetchBookings(searchTerm.trim());
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchTerm]);
 
   return (
     <div className={bookingsStyles.pageContainer}>
-        <div className={bookingsStyles.contentContainer}>
+      <div className={bookingsStyles.contentContainer}>
         <div className={bookingsStyles.headerContainer}>
-            <h1 className={bookingsStyles.headerTitle}>Course Bookings</h1>
-            <p className={bookingsStyles.headerSubtitle}>
+          <h1 className={bookingsStyles.headerTitle}>Course Bookings</h1>
+          <p className={bookingsStyles.headerSubtitle}>
             Manage and view all student course pruchases
-            </p>
+          </p>
         </div>
 
         {/* Search */}
         <div className={bookingsStyles.searchContainer}>
-        <div className={bookingsStyles.searchInputContainer}>
+          <div className={bookingsStyles.searchInputContainer}>
             <Search className={bookingsStyles.searchIcon} />
             <input
-            type="text"
-            placeholder="Search by student, course, or teacher..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={bookingsStyles.searchInput}
+              type="text"
+              placeholder="Search by student, course, or teacher..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={bookingsStyles.searchInput}
             />
-        </div>
+          </div>
         </div>
 
         <div
-            style={{
-                minHeight: 36,
-            }}
-            >
-            {loading && (
-                <div className={bookingsStyles.loadingState}>
-                <p>Loading bookings...</p>
-                </div>
-            )}
-            {!loading && error && (
-                <div className={bookingsStyles.errorState}>
-                    <p>Error: {error}</p>
-                </div>
-                )}
-                </div>
-
-                {/* booking grid */}
-                <div className={bookingsStyles.bookingsGrid}>
-                {!loading &&
-                    bookings.map((booking) => (
-                    <div key={booking.id} className={bookingsStyles.bookingCard}>
-                        <div className={bookingsStyles.studentSection}>
-                            <div className={bookingsStyles.studentIconContainer}>
-                                <User className={bookingsStyles.studentIcon} />
-                            </div>
-
-                            <div className={bookingsStyles.studentInfo}>
-                                <div className={bookingsStyles.studentInfo}>
-                                    <h3 className={bookingsStyles.studentName}>
-                                        {booking.studentName}
-                                    </h3>
-                                    <p className={bookingsStyles.purchaseDate}>
-                                        Purchased on {booking.purchaseDate || "-"}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* course details */}
-                            <div className={bookingsStyles.courseDetails}>
-                                <div className={bookingsStyles.detailItem}>
-                                    <BookOpen className={bookingsStyles.detailIcon}/>
-                                    <span className={bookingsStyles.detailLabel}>Course:</span>
-                                    <span className={bookingsStyles.detailValue}>
-                                        {booking.courseName}
-                                    </span>
-                                </div>
-
-                                <div className={bookingsStyles.detailItem}>
-                                    <BadgeIndianRupee className={bookingsStyles.detailIcon}/>
-                                    <span className={bookingsStyles.detailLabel}>Price:</span>
-                                    <span className={bookingsStyles.detailValue}>
-                                        ₹{booking.price}
-                                    </span>
-                                </div>
-
-                                <div className={bookingsStyles.detailItem}>
-                                    <GraduationCap className={bookingsStyles.detailIcon}/>
-                                    <span className={bookingsStyles.detailLabel}>Teacher:</span>
-                                    <span className={bookingsStyles.detailValue}>
-                                        {booking.teacherName}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className={bookingsStyles.statusContainer}>
-                                <span className={bookingsStyles.statusBadge}>Completed</span>
-                            </div>
-                        </div>
-                    </div>
-                    ))}
-                </div>
-
-                {/* no result */}
-                {!loading && bookings.length === 0 && !error && (
-                <div className={bookingsStyles.emptyState}>
-                    <div className={bookingsStyles.emptyContainer}>
-                    <Search className={bookingsStyles.emptyIcon} />
-                    <h3 className={bookingsStyles.emptyTitle}>No bookings found</h3>
-                    <p className={bookingsStyles.emptyText}>
-                        No bookings match your search criteria. Try adjusting your
-                        search terms.
-                    </p>
-                    </div>
-                </div>
-                )}
+          style={{
+            minHeight: 36,
+          }}
+        >
+          {loading && (
+            <div className={bookingsStyles.loadingState}>
+              <p>Loading bookings...</p>
             </div>
+          )}
+          {!loading && error && (
+            <div className={bookingsStyles.errorState}>
+              <p>Error: {error}</p>
+            </div>
+          )}
         </div>
-    
-    );
+
+        {/* booking grid */}
+        <div className={bookingsStyles.bookingsGrid}>
+          {!loading &&
+            bookings.map((booking) => (
+              <div key={booking.id} className={bookingsStyles.bookingCard}>
+                
+                {/* 1. Student Section */}
+                <div className={bookingsStyles.studentSection}>
+                  <div className={bookingsStyles.studentIconContainer}>
+                    <User className={bookingsStyles.studentIcon} />
+                  </div>
+
+                  {/* Fixed duplicate nesting here */}
+                  <div className={bookingsStyles.studentInfo}>
+                    <h3 className={bookingsStyles.studentName}>
+                      {booking.studentName}
+                    </h3>
+                    <p className={bookingsStyles.purchaseDate}>
+                      Purchased on {booking.purchaseDate || "-"}
+                    </p>
+                  </div>
+                </div> {/* <-- Closed Student Section correctly here */}
+
+                {/* 2. Course Details */}
+                <div className={bookingsStyles.courseDetails}>
+                  <div className={bookingsStyles.detailItem}>
+                    <BookOpen className={bookingsStyles.detailIcon} />
+                    <span className={bookingsStyles.detailLabel}>Course:</span>
+                    <span className={bookingsStyles.detailValue}>
+                      {booking.courseName}
+                    </span>
+                  </div>
+
+                  <div className={bookingsStyles.detailItem}>
+                    <BadgeIndianRupee className={bookingsStyles.detailIcon} />
+                    <span className={bookingsStyles.detailLabel}>Price:</span>
+                    <span className={bookingsStyles.detailValue}>
+                      ₹{booking.price}
+                    </span>
+                  </div>
+
+                  <div className={bookingsStyles.detailItem}>
+                    <GraduationCap className={bookingsStyles.detailIcon} />
+                    <span className={bookingsStyles.detailLabel}>Teacher:</span>
+                    <span className={bookingsStyles.detailValue}>
+                      {booking.teacherName}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Status Container */}
+                <div className={bookingsStyles.statusContainer}>
+                  <span className={bookingsStyles.statusBadge}>Completed</span>
+                </div>
+                
+              </div>
+            ))}
+        </div>
+
+        {/* no result */}
+        {!loading && bookings.length === 0 && !error && (
+          <div className={bookingsStyles.emptyState}>
+            <div className={bookingsStyles.emptyContainer}>
+              <Search className={bookingsStyles.emptyIcon} />
+              <h3 className={bookingsStyles.emptyTitle}>No bookings found</h3>
+              <p className={bookingsStyles.emptyText}>
+                No bookings match your search criteria. Try adjusting your
+                search terms.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default BookingsPage;

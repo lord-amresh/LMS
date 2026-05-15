@@ -1,4 +1,5 @@
 import Course from '../models/courseModel.js';
+import Booking from '../models/bookingModel.js'; // <-- Added Booking model import
 import { getAuth } from '@clerk/express';
 import fs from 'fs';
 import path from 'path';
@@ -294,7 +295,12 @@ export const deleteCourse = async (req, res) => {
         } catch (e) {
             // ignore any errors
         }
+        
         await course.deleteOne();
+        
+        // <-- ADDED THIS: Also delete associated bookings when a course is deleted -->
+        await Booking.deleteMany({ course: id });
+
         return res.json({
             success: true,
             message: 'Course Deleted.'

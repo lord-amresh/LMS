@@ -493,7 +493,7 @@ if (!res.ok && !data.success) {
                               <div
                                 className={coursePageStyles.ratingStarsInner}
                               >
-                              <ratingStars
+                              <RatingStars
                               courseId={course.id}
                               userRating={userRating}
                               avgRating={course.avgRating}
